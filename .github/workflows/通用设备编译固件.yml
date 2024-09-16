@@ -51,6 +51,7 @@ jobs:
           sudo -E apt-get -y purge azure-cli ghc* zulu* llvm* firefox google* dotnet* powershell openjdk* mongodb* moby* || true
           sudo -E apt-get -y install $(curl -fsSL https://is.gd/depend_ubuntu2204_openwrt)
           sudo -E systemctl daemon-reload
+          #sudo -E apt-get -y full-upgrade
           sudo -E apt-get -y autoremove --purge
           sudo -E apt-get clean
           sudo mkdir -p /workdir
@@ -63,6 +64,7 @@ jobs:
         working-directory: /workdir
         if: ${{ steps.init.outputs.status }} == 'success' && !cancelled()
         run: |
+          # Set up compilation source code
           if [[ "${{ inputs.source_branch }}" == *"openwrt"* ]]; then
               REPO_URL="https://github.com/openwrt/openwrt"
               REPO_BRANCH="main"
@@ -84,8 +86,11 @@ jobs:
               exit 1
           fi
 
+          # Clone source code
           git clone -q --single-branch --depth=1 --branch=${REPO_BRANCH} ${REPO_URL} openwrt
           ln -sf /workdir/openwrt ${GITHUB_WORKSPACE}/openwrt
+
+          # Set output information
           echo "build_tag=OpenWrt_${TAGS_NAME}_${{ inputs.openwrt_storage }}_$(date +"%Y.%m")" >> ${GITHUB_OUTPUT}
           echo -e "REPO_URL: [ ${REPO_URL} ]\nREPO_BRANCH: [ ${REPO_BRANCH} ]\nTAGS_NAME: [ ${TAGS_NAME} ]"
           df -hT ${PWD}
@@ -164,6 +169,18 @@ jobs:
           touch release.txt
           [ $UPLOAD_COWTRANSFER = true ] && echo "🔗 [Cowtransfer](${{ steps.cowtransfer.outputs.url }})" >> release.txt
           [ $UPLOAD_WETRANSFER = true ] && echo "🔗 [WeTransfer](${{ steps.wetransfer.outputs.url }})" >> release.txt
+          cat <<EOF >> release.txt
+          ### OpenWrt Image information
+          - Default IP: 192.168.1.1
+          - Default username: root
+          - Default password: password
+          - Default WIFI name: OpenWrt
+          - Default WIFI password: none
+          ### Install to EMMC
+          - Login to OpenWrt → System → Amlogic Service → Install OpenWrt
+          ### OpenWrt Image Verification
+          - sha256sum
+          EOF
           echo "::set-output name=status::success"
 
       - name: Upload firmware to release
@@ -182,15 +199,3 @@ jobs:
           retain_days: 1
           keep_minimum_runs: 3
           token: ${{ secrets.PAT_TOKEN }}
-        body: |
-
-          ### OpenWrt Image information
-          - Default IP: 192.168.1.1
-          - Default username: root
-          - Default password: password
-          - Default WIFI name: OpenWrt
-          - Default WIFI password: none
-          ### Install to EMMC
-          - Login to OpenWrt → System → Amlogic Service → Install OpenWrt
-          ### OpenWrt Image Verification
-          - sha256sum
