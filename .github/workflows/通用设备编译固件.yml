@@ -75,7 +75,7 @@ jobs:
               TAGS_NAME="lede"
           elif [[ "${{ inputs.source_branch }}" == *"immortalwrt"* ]]; then
               REPO_URL="https://github.com/immortalwrt/immortalwrt"
-              REPO_BRANCH="openwrt-23.05"
+              REPO_BRANCH="v23.05.3"
               TAGS_NAME="immortalwrt"
           elif [[ "${{ inputs.source_branch }}" == *"Lienol"* ]]; then
               REPO_URL="https://github.com/Lienol/openwrt"
@@ -131,8 +131,9 @@ jobs:
         run: |
           cd openwrt/
           echo -e "$(nproc) thread compile"
-          make V=s -j$(nproc)
+          make -j$(($(nproc) + 1)) V=s || make -j1 || make -j1 V=s
           echo "status=success" >> ${GITHUB_OUTPUT}
+
 
       - name: Check space usage
         if: (!cancelled())
@@ -169,25 +170,13 @@ jobs:
           touch release.txt
           [ $UPLOAD_COWTRANSFER = true ] && echo "🔗 [Cowtransfer](${{ steps.cowtransfer.outputs.url }})" >> release.txt
           [ $UPLOAD_WETRANSFER = true ] && echo "🔗 [WeTransfer](${{ steps.wetransfer.outputs.url }})" >> release.txt
-          cat <<EOF >> release.txt
-          ### OpenWrt Image information
-          - Default IP: 192.168.1.1
-          - Default username: root
-          - Default password: password
-          - Default WIFI name: OpenWrt
-          - Default WIFI password: none
-          ### Install to EMMC
-          - Login to OpenWrt → System → Amlogic Service → Install OpenWrt
-          ### OpenWrt Image Verification
-          - sha256sum
-          EOF
           echo "::set-output name=status::success"
 
       - name: Upload firmware to release
         uses: softprops/action-gh-release@v1
         if: steps.tag.outputs.status == 'success' && !cancelled()
         env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.tag.outputs.release_tag }}
           body_path: release.txt
@@ -198,4 +187,17 @@ jobs:
         with:
           retain_days: 1
           keep_minimum_runs: 3
-          token: ${{ secrets.PAT_TOKEN }}
+          token: ${{ secrets.GH_TOKEN }}
+          body: |
+
+            ### OpenWrt Image information
+            - Default IP: 192.168.1.1
+            - Default username: root
+            - Default password: password
+            - Default WIFI name: OpenWrt
+            - Default WIFI password: none
+            ### Install to EMMC
+            - Login to OpenWrt → System → Amlogic Service → Install OpenWrt
+            ### OpenWrt Image Verification
+            - sha256sum
+    
